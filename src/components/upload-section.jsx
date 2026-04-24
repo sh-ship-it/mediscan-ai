@@ -194,7 +194,7 @@ export default function UploadSection() {
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-black">Analysis Results</h3>
-                  <p className="text-sm text-gray-500">EfficientNetB3 inference + Groq clinical summary</p>
+                  <p className="text-sm text-gray-500">EfficientNetB3 analysis + Groq clinical summary</p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -257,7 +257,7 @@ export default function UploadSection() {
               {result.inference_time && (
                 <div className="rounded-xl border border-gray-300 bg-gray-50 p-4 space-y-2 text-base">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Inference Time:</span>
+                    <span className="text-gray-600">Processing Time:</span>
                     <span className="font-semibold text-black">{result.inference_time} ms</span>
                   </div>
                   <div className="flex items-center justify-between">

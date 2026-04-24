@@ -114,7 +114,7 @@ export default function DashboardPage() {
                         <th className="text-left px-4 py-3 text-sm font-bold text-black uppercase tracking-wider">Date</th>
                         <th className="text-left px-4 py-3 text-sm font-bold text-black uppercase tracking-wider">Prediction</th>
                         <th className="text-left px-4 py-3 text-sm font-bold text-black uppercase tracking-wider">Confidence</th>
-                        <th className="text-left px-4 py-3 text-sm font-bold text-black uppercase tracking-wider">Inference Time</th>
+                        <th className="text-left px-4 py-3 text-sm font-bold text-black uppercase tracking-wider">Processing Time</th>
                         <th className="text-left px-4 py-3 text-sm font-bold text-black uppercase tracking-wider">Clinical Summary</th>
                       </tr>
                     </thead>
