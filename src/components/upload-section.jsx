@@ -420,7 +420,7 @@ export default function UploadSection() {
                   <div>
                     <CardTitle className="text-xl">Analysis Results</CardTitle>
                     <CardDescription>
-                      MobileNetV2 inference + Groq clinical summary
+                      EfficientNetB3 inference + Groq clinical summary
                     </CardDescription>
                   </div>
                 </div>

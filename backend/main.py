@@ -1,8 +1,10 @@
 import io
+import os
 import base64
 import time
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -17,30 +19,54 @@ logger = logging.getLogger("mediscan")
 # ── Model holder (loaded once on startup) ────────────────────────────
 model_store: dict = {}
 
+# ── Model path ───────────────────────────────────────────────────────
+MODEL_DIR = Path(__file__).parent / "models"
+MODEL_PATH = MODEL_DIR / "best_phase1.keras"
+
+# ── Image settings (must match your training pipeline) ───────────────
+IMG_SIZE = (300, 300)  # EfficientNetB3 native input size
+CLASS_NAMES = ["Normal", "Pneumonia"]  # index 0 = Normal, index 1 = Pneumonia
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Use a lightweight pneumonia classification model from Hugging Face
-    # 'nickmuchi/vit-finetuned-chest-xray-pneumonia' or 'lxyuan/vit-xray-pneumonia-classification'
-    MODEL_ID = "nickmuchi/vit-finetuned-chest-xray-pneumonia"
-    logger.info(f"Loading local inference model: {MODEL_ID} on CPU...")
-    
-    try:
-        from transformers import pipeline
-        # Initialize pipeline for CPU inference
-        model_store["classifier"] = pipeline("image-classification", model=MODEL_ID, device=-1)
-        logger.info("Model loaded successfully ✓")
-    except Exception as e:
-        logger.error(f"Failed to load model: {e}")
-        
+    """Load the fine-tuned Keras model once at startup."""
+    logger.info(f"Looking for model at: {MODEL_PATH}")
+
+    if not MODEL_PATH.exists():
+        logger.error(
+            f"Model file not found at {MODEL_PATH}. "
+            f"Please place 'best_phase1.keras' in the backend/models/ directory."
+        )
+    else:
+        try:
+            import tensorflow as tf
+
+            model = tf.keras.models.load_model(str(MODEL_PATH))
+            model_store["model"] = model
+            logger.info(f"Model loaded successfully ✓  (input shape: {model.input_shape})")
+
+            # Detect the expected image size from the model's input shape
+            input_shape = model.input_shape
+            if input_shape and len(input_shape) == 4:
+                h, w = input_shape[1], input_shape[2]
+                if h and w:
+                    model_store["img_size"] = (h, w)
+                    logger.info(f"Auto-detected input size: {h}x{w}")
+
+        except Exception as e:
+            logger.error(f"Failed to load model: {e}")
+
     yield
     model_store.clear()
     logger.info("Model unloaded.")
 
+
 # ── App ──────────────────────────────────────────────────────────────
 app = FastAPI(
     title="MediScan AI Backend",
-    version="0.1.0",
-    description="AI-powered medical image analysis API running local inference.",
+    version="0.2.0",
+    description="AI-powered medical image analysis API using a fine-tuned EfficientNetB3 Keras model.",
     lifespan=lifespan,
 )
 
@@ -53,10 +79,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+def preprocess_image(pil_image: Image.Image, target_size: tuple) -> np.ndarray:
+    """
+    Preprocess a PIL image for the Keras model.
+    - Resize to target_size
+    - Convert to RGB
+    - Normalize pixel values to [0, 1]
+    - Add batch dimension
+    """
+    img = pil_image.convert("RGB").resize(target_size)
+    img_array = np.array(img, dtype=np.float32) / 255.0
+    return np.expand_dims(img_array, axis=0)  # Shape: (1, H, W, 3)
+
+
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     """
-    Accepts an image upload, runs local CPU inference, and returns:
+    Accepts an image upload, runs inference with the fine-tuned Keras model, and returns:
     { "prediction": "Pneumonia", "confidence": 0.96, "inference_time": 120 }
     """
     if file.content_type and not file.content_type.startswith("image/"):
@@ -66,29 +106,46 @@ async def predict(file: UploadFile = File(...)):
     try:
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
-        # The transformers pipeline handles resizing (224x224) and normalization automatically!
     except Exception as exc:
         raise HTTPException(status_code=422, detail="Could not process the uploaded image.") from exc
 
-    classifier = model_store.get("classifier")
-    if classifier is None:
-        raise HTTPException(status_code=503, detail="Local model not loaded. Check server logs.")
+    model = model_store.get("model")
+    if model is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Model not loaded. Ensure 'best_phase1.keras' is in backend/models/ and restart the server.",
+        )
 
-    # ── 2. Run Inference on CPU and measure time ─────────────────────
+    # Use auto-detected size or fall back to default
+    target_size = model_store.get("img_size", IMG_SIZE)
+    input_tensor = preprocess_image(image, target_size)
+
+    # ── 2. Run Inference and measure time ────────────────────────────
     start_time = time.time()
-    
-    results = classifier(image)
-    
+
+    predictions = model.predict(input_tensor, verbose=0)
+
     end_time = time.time()
     inference_time_ms = int((end_time - start_time) * 1000)
 
     # ── 3. Parse Results ─────────────────────────────────────────────
-    # Results look like: [{'label': 'PNEUMONIA', 'score': 0.99}, ...]
-    top_result = results[0]
-    raw_label = top_result["label"].upper()
-    
-    label = "Pneumonia" if "PNEUMONIA" in raw_label else "Normal"
-    confidence = float(top_result["score"])
+    # Handle both sigmoid (single output) and softmax (two outputs)
+    pred_array = predictions[0]
+
+    if len(pred_array) == 1:
+        # Sigmoid output: single value → P(Pneumonia)
+        pneumonia_prob = float(pred_array[0])
+        if pneumonia_prob >= 0.5:
+            label = "Pneumonia"
+            confidence = pneumonia_prob
+        else:
+            label = "Normal"
+            confidence = 1.0 - pneumonia_prob
+    else:
+        # Softmax output: [P(Normal), P(Pneumonia)]
+        predicted_idx = int(np.argmax(pred_array))
+        label = CLASS_NAMES[predicted_idx]
+        confidence = float(pred_array[predicted_idx])
 
     # ── 4. Generate AI Heatmap (Visual Explainability) ───────────────
     heatmap_b64 = None
@@ -96,11 +153,11 @@ async def predict(file: UploadFile = File(...)):
         # Convert PIL to OpenCV format
         cv_img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
         gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
-        
+
         # Apply CLAHE to enhance contrast
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         enhanced = clahe.apply(gray)
-        
+
         # If pneumonia is predicted, highlight the most opaque regions (white spots)
         if label == "Pneumonia":
             # Thresholding to find dense areas
@@ -114,13 +171,13 @@ async def predict(file: UploadFile = File(...)):
             # For Normal, just create a subtle blue map over the lung areas
             _, thresh = cv2.threshold(enhanced, 100, 255, cv2.THRESH_BINARY)
             heatmap = cv2.applyColorMap(thresh, cv2.COLORMAP_OCEAN)
-            
+
         # Blend the heatmap with the original image
         overlay = cv2.addWeighted(cv_img, 0.6, heatmap, 0.4, 0)
-        
+
         # Convert back to base64
-        _, buffer = cv2.imencode('.jpg', overlay)
-        heatmap_b64 = base64.b64encode(buffer).decode('utf-8')
+        _, buffer = cv2.imencode(".jpg", overlay)
+        heatmap_b64 = base64.b64encode(buffer).decode("utf-8")
     except Exception as e:
         logger.error(f"Heatmap generation failed: {e}")
 
@@ -130,5 +187,5 @@ async def predict(file: UploadFile = File(...)):
         "prediction": label,
         "confidence": round(confidence, 4),
         "inference_time": inference_time_ms,
-        "heatmap": f"data:image/jpeg;base64,{heatmap_b64}" if heatmap_b64 else None
+        "heatmap": f"data:image/jpeg;base64,{heatmap_b64}" if heatmap_b64 else None,
     }
