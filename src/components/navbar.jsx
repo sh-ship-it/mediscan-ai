@@ -28,11 +28,11 @@ export default function Navbar() {
   return (
     <nav
       className={cn(
-        "fixed top-6 left-0 right-0 z-50 flex justify-center transition-all duration-500",
+        "static top-6 left-0 right-0 z-50 flex justify-center transition-all duration-500",
         isVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0"
       )}
     >
-      <div className="flex items-center gap-48 px-20 py-3 rounded-full border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
+      <div className="flex items-center gap-48 px-20 py-4 rounded-full border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
         {/* Brand Link */}
         <Link 
           href="/" 
