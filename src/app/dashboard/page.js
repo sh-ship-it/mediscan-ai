@@ -2,38 +2,20 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { ArrowLeft, LayoutDashboard, Calendar, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { RainbowButton } from "@/components/ui/rainbow-button";
 import { supabase } from "@/lib/supabase";
 import HistoryChart from "@/components/history-chart";
 import { format } from "date-fns";
+import Navbar from "@/components/navbar";
 
 export default function DashboardPage() {
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     const loadScans = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const patientId = session?.user?.id || "00000000-0000-0000-0000-000000000000";
+      const patientId = "00000000-0000-0000-0000-000000000000";
 
       const { data, error } = await supabase
         .from("scans")
@@ -54,29 +36,30 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Loading dashboard...</div>
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="animate-pulse text-gray-500 text-lg">Loading dashboard...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+    <div className="min-h-screen bg-white">
+      <Navbar />
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 pt-24">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex items-center gap-4 mb-10">
           <Link href="/">
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+            <RainbowButton size="icon" className="h-10 w-10 border-2 border-black hover:bg-gray-100 rounded-full px-0 py-0">
+              <ArrowLeft className="h-5 w-5 text-black" />
+            </RainbowButton>
           </Link>
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <LayoutDashboard className="h-5 w-5 text-primary" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 border-2 border-gray-300">
+              <LayoutDashboard className="h-6 w-6 text-black" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-3xl font-bold tracking-tight text-black">Dashboard</h1>
+              <p className="text-base text-gray-500">
                 Your analysis history and insights
               </p>
             </div>
@@ -85,94 +68,94 @@ export default function DashboardPage() {
 
         {safeScans.length === 0 ? (
           /* Empty state */
-          <Card className="glass border-border/40">
-            <CardHeader className="text-center py-16">
-              <CardTitle className="text-xl">No analyses yet</CardTitle>
-              <CardDescription className="mt-2 text-base">
+          <div className="rounded-2xl border-2 border-black bg-white">
+            <div className="text-center py-20">
+              <h2 className="text-2xl font-bold text-black">No analyses yet</h2>
+              <p className="mt-3 text-lg text-gray-500">
                 Upload a medical image to get started with your first analysis.
-              </CardDescription>
-              <div className="mt-6">
+              </p>
+              <div className="mt-8">
                 <Link href="/#upload">
-                  <Button className="gap-2">
+                  <RainbowButton className="gap-2 text-base px-8 py-6 h-14 rounded-xl w-full max-w-[250px]">
                     Start Analyzing
-                  </Button>
+                  </RainbowButton>
                 </Link>
               </div>
-            </CardHeader>
-          </Card>
+            </div>
+          </div>
         ) : (
-          <div className="grid gap-8 grid-cols-1 lg:grid-cols-3">
+          <div className="grid gap-8 grid-cols-1">
             {/* Chart Section */}
-            <Card className="lg:col-span-3 glass border-border/40">
-              <CardHeader>
-                <CardTitle className="text-xl">Infection Probability</CardTitle>
-                <CardDescription>
+            <div className="rounded-2xl border-2 border-black bg-white overflow-hidden">
+              <div className="px-6 py-5 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-black">Infection Probability</h2>
+                <p className="text-base text-gray-500">
                   Your respiratory infection risk over time
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+                </p>
+              </div>
+              <div className="p-6">
                 <HistoryChart scans={safeScans} />
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {/* Table Section */}
-            <Card className="lg:col-span-3 glass border-border/40">
-              <CardHeader>
-                <CardTitle className="text-xl">Past Scans</CardTitle>
-                <CardDescription>
+            <div className="rounded-2xl border-2 border-black bg-white overflow-hidden">
+              <div className="px-6 py-5 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-black">Past Scans</h2>
+                <p className="text-base text-gray-500">
                   A history of all your uploaded medical images
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border border-border/40 overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-card/40">
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Prediction</TableHead>
-                        <TableHead>Confidence</TableHead>
-                        <TableHead>Inference Time</TableHead>
-                        <TableHead>Clinical Summary</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                </p>
+              </div>
+              <div className="p-6">
+                <div className="rounded-xl border-2 border-gray-200 overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b-2 border-gray-200">
+                      <tr>
+                        <th className="text-left px-4 py-3 text-sm font-bold text-black uppercase tracking-wider">Date</th>
+                        <th className="text-left px-4 py-3 text-sm font-bold text-black uppercase tracking-wider">Prediction</th>
+                        <th className="text-left px-4 py-3 text-sm font-bold text-black uppercase tracking-wider">Confidence</th>
+                        <th className="text-left px-4 py-3 text-sm font-bold text-black uppercase tracking-wider">Inference Time</th>
+                        <th className="text-left px-4 py-3 text-sm font-bold text-black uppercase tracking-wider">Clinical Summary</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
                       {safeScans.map((scan) => {
                         const isPneumonia = scan.prediction === "Pneumonia";
                         return (
-                          <TableRow key={scan.id}>
-                            <TableCell className="whitespace-nowrap">
-                              <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <tr key={scan.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-2 text-base text-black">
+                                <Calendar className="h-4 w-4 text-gray-500" />
                                 {format(new Date(scan.created_at), "MMM dd, yyyy")}
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${
-                                isPneumonia ? "bg-destructive/10 text-destructive" : "bg-green-500/10 text-green-500"
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${
+                                isPneumonia ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
                               }`}>
-                                {isPneumonia ? <AlertTriangle className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+                                {isPneumonia ? <AlertTriangle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                                 {scan.prediction}
                               </div>
-                            </TableCell>
-                            <TableCell>
+                            </td>
+                            <td className="px-4 py-4 text-base font-semibold text-black">
                               {(scan.confidence * 100).toFixed(1)}%
-                            </TableCell>
-                            <TableCell>
+                            </td>
+                            <td className="px-4 py-4 text-base text-gray-700">
                               {scan.inference_time ? `${scan.inference_time} ms` : "N/A"}
-                            </TableCell>
-                            <TableCell className="max-w-[300px]">
-                              <p className="text-xs text-muted-foreground line-clamp-2" title={scan.summary || "No summary available."}>
+                            </td>
+                            <td className="px-4 py-4 max-w-[300px]">
+                              <p className="text-sm text-gray-600 line-clamp-2" title={scan.summary || "No summary available."}>
                                 {scan.summary || "No summary available."}
                               </p>
-                            </TableCell>
-                          </TableRow>
+                            </td>
+                          </tr>
                         );
                       })}
-                    </TableBody>
-                  </Table>
+                    </tbody>
+                  </table>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         )}
       </div>

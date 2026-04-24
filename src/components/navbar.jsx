@@ -2,147 +2,52 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import {
-  Activity,
-  LayoutDashboard,
-  Menu,
-  X,
-  LogOut,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [user, setUser] = useState(null);
-  const router = useRouter();
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", onScroll);
-
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      subscription.unsubscribe();
+    const controlNavbar = () => {
+      if (typeof window !== "undefined") {
+        // Hide if scrolling down, show if scrolling up
+        if (window.scrollY > lastScrollY && window.scrollY > 100) {
+          setIsVisible(false);
+        } else {
+          setIsVisible(true);
+        }
+        setLastScrollY(window.scrollY);
+      }
     };
-  }, []);
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push("/");
-  };
+    window.addEventListener("scroll", controlNavbar);
+    return () => window.removeEventListener("scroll", controlNavbar);
+  }, [lastScrollY]);
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled
-          ? "glass shadow-lg shadow-black/10"
-          : "bg-transparent"
-      }`}
+      className={cn(
+        "fixed top-6 left-0 right-0 z-50 flex justify-center transition-all duration-500",
+        isVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0"
+      )}
     >
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="group flex items-center gap-2.5">
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent transition-transform duration-300 group-hover:scale-110">
-              <Activity className="h-5 w-5 text-primary-foreground" />
-              <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary to-accent opacity-0 blur-lg transition-opacity duration-300 group-hover:opacity-60" />
-            </div>
-            <span className="text-lg font-bold tracking-tight">
-              Medi<span className="text-gradient">Scan</span>{" "}
-              <span className="text-muted-foreground font-medium">AI</span>
-            </span>
-          </Link>
-
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-2">
-            <Link href="/dashboard">
-              <Button
-                variant="ghost"
-                className="gap-2 text-muted-foreground hover:text-foreground transition-colors duration-200"
-              >
-                <LayoutDashboard className="h-4 w-4" />
-                Dashboard
-              </Button>
-            </Link>
-            {user ? (
-              <Button
-                variant="outline"
-                className="gap-2 border-border/60 hover:border-destructive/40 hover:text-destructive hover:bg-destructive/10 transition-all duration-300"
-                onClick={handleSignOut}
-              >
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </Button>
-            ) : (
-              <Link href="/auth">
-                <Button
-                  variant="outline"
-                  className="gap-2 border-border/60 hover:border-primary/40 hover:glow-primary transition-all duration-300"
-                >
-                  Sign In
-                </Button>
-              </Link>
-            )}
-          </div>
-
-          {/* Mobile hamburger */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label="Toggle menu"
-          >
-            {mobileOpen ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {/* Mobile menu */}
-      <div
-        className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${
-          mobileOpen ? "max-h-48 opacity-100" : "max-h-0 opacity-0"
-        }`}
-      >
-        <div className="glass border-t border-border/40 px-4 py-4 space-y-2">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-            onClick={() => setMobileOpen(false)}
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            Dashboard
-          </Link>
-          {user ? (
-            <Button variant="outline" className="w-full mt-2" onClick={handleSignOut}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
-          ) : (
-            <Link href="/auth" className="block w-full mt-2" onClick={() => setMobileOpen(false)}>
-              <Button variant="outline" className="w-full">
-                Sign In
-              </Button>
-            </Link>
-          )}
-        </div>
+      <div className="flex items-center gap-48 px-20 py-3 rounded-full border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
+        {/* Brand Link */}
+        <Link 
+          href="/" 
+          className="text-gray-700 font-bold text-xl tracking-tight hover:opacity-70 transition-all"
+        >
+          MediScan <span className="text-blue-400">AI</span>
+        </Link>
+        
+        {/* Navigation Link */}
+        <Link 
+          href="/dashboard" 
+          className="text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 px-4 py-1.5 rounded-full transition-all"
+        >
+          Dashboard
+        </Link>
       </div>
     </nav>
   );
